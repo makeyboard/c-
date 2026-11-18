@@ -249,7 +249,11 @@ async function runCode() {
         run_timeout: 5000
       })
     });
-    if (!response.ok) throw new Error('piston-http-' + response.status);
+    if (!response.ok) {
+      let bodyText = '';
+      try { bodyText = await response.text(); } catch (e) {}
+      throw new Error('piston-http-' + response.status + (bodyText ? ' :: ' + bodyText.slice(0, 200) : ''));
+    }
     const data = await response.json();
 
     let result = '';
@@ -278,12 +282,16 @@ async function runCode() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         code: source,
-        compiler: 'gcc-13.1.0',
+        compiler: 'gcc-head',
         options: 'warning,gnu++17',
         stdin: stdinEl.value
       })
     });
-    if (!response.ok) throw new Error('wandbox-http-' + response.status);
+    if (!response.ok) {
+      let bodyText = '';
+      try { bodyText = await response.text(); } catch (e) {}
+      throw new Error('wandbox-http-' + response.status + (bodyText ? ' :: ' + bodyText.slice(0, 200) : ''));
+    }
     const data = await response.json();
 
     let result = '';
