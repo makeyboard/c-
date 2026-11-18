@@ -177,7 +177,13 @@
 
 <footer>الوضع الافتراضي يشغّل الكود محليًا جوه المتصفح (مفسّر JSCPP) — من غير ما يحتاج سيرفر خارجي</footer>
 
-<script src="https://cdn.jsdelivr.net/npm/jscpp@2.0.11/dist/JSCPP.es5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jscpp@2.0.9/dist/JSCPP.es5.min.js"></script>
+<script>
+// Fallback CDN in case jsDelivr is unreachable for this user
+if (typeof JSCPP === 'undefined') {
+  document.write('<scr' + 'ipt src="https://unpkg.com/jscpp@2.0.9/dist/JSCPP.es5.min.js"></scr' + 'ipt>');
+}
+</script>
 <script>
 const codeEl = document.getElementById('code');
 const outputEl = document.getElementById('output');
