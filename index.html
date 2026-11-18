@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C++ Online Compiler</title>
+<style>
+  :root {
+    --bg: #1e1e2e;
+    --panel: #272735;
+    --accent: #7aa2f7;
+    --accent2: #9ece6a;
+    --text: #cdd6f4;
+    --muted: #8993b0;
+    --error: #f7768e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: linear-gradient(135deg, #1a1b26, #24283b);
+    color: var(--text);
+    min-height: 100vh;
+    direction: ltr;
+  }
+  header {
+    padding: 18px 24px;
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  header h1 { font-size: 18px; margin: 0; color: var(--accent); }
+  header h1 span { color: var(--accent2); }
+  .controls { display: flex; gap: 10px; align-items: center; }
+  select, button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button#runBtn {
+    background: linear-gradient(135deg, var(--accent2), #6fae3f);
+    color: #0b1a07;
+    font-weight: bold;
+    border: none;
+  }
+  button#runBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+  button:hover:not(:disabled) { filter: brightness(1.1); }
+  main {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  @media (min-width: 900px) {
+    main { flex-direction: row; align-items: stretch; }
+  }
+  .panel {
+    background: var(--panel);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 420px;
+  }
+  .panel-header {
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--muted);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    justify-content: space-between;
+  }
+  textarea#code {
+    flex: 1;
+    background: #11111b;
+    color: #e0def4;
+    border: none;
+    padding: 14px;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 14.5px;
+    line-height: 1.55;
+    resize: none;
+    outline: none;
+    tab-size: 4;
+    white-space: pre;
+  }
+  #stdinBox {
+    background: #11111b;
+    color: #e0def4;
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 10px 14px;
+    font-family: monospace;
+    font-size: 13px;
+    resize: vertical;
+    outline: none;
+    min-height: 50px;
+  }
+  #output {
+    flex: 1;
+    background: #11111b;
+    padding: 14px;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 14px;
+    white-space: pre-wrap;
+    overflow-y: auto;
+    line-height: 1.5;
+  }
+  #output.error { color: var(--error); }
+  #output.success { color: #e0def4; }
+  .status-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-left: 6px;
+    background: var(--muted);
+  }
+  .status-dot.ok { background: var(--accent2); }
+  .status-dot.fail { background: var(--error); }
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 10px; }
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(0,0,0,0.3);
+    border-top-color: #0b1a07;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>&lt;/&gt; C++ <span>Compiler</span></h1>
+  <div class="controls">
+    <select id="stdVersion">
+      <option value="10.2.0" selected>GCC 10.2.0</option>
+    </select>
+    <button id="runBtn">▶ تشغيل الكود</button>
+  </div>
+</header>
+
+<main>
+  <div class="panel">
+    <div class="panel-header">
+      <span>main.cpp</span>
+      <span id="charCount">0 حرف</span>
+    </div>
+    <textarea id="code" spellcheck="false"></textarea>
+    <textarea id="stdinBox" placeholder="مدخلات البرنامج (stdin) - اختياري، سطر لكل إدخال"></textarea>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <span>الناتج (Output) <span class="status-dot" id="statusDot"></span></span>
+      <span id="timeTaken"></span>
+    </div>
+    <div id="output">اكتب كودك واضغط "تشغيل الكود" عشان تشوف الناتج هنا.</div>
+  </div>
+</main>
+
+<footer>يعمل عبر Piston API (emkc.org) — يحتاج اتصال إنترنت وقت التشغيل</footer>
+
+<script>
+const codeEl = document.getElementById('code');
+const outputEl = document.getElementById('output');
+const runBtn = document.getElementById('runBtn');
+const stdinEl = document.getElementById('stdinBox');
+const charCount = document.getElementById('charCount');
+const statusDot = document.getElementById('statusDot');
+const timeTaken = document.getElementById('timeTaken');
+
+const defaultCode = [
+  '#include <iostream>',
+  'using namespace std;',
+  '',
+  'int main() {',
+  '    cout << "Hello, World!" << endl;',
+  '    return 0;',
+  '}',
+  ''
+].join('\n');
+
+codeEl.value = defaultCode;
+
+function updateCharCount() {
+  charCount.textContent = codeEl.value.length + ' حرف';
+}
+codeEl.addEventListener('input', updateCharCount);
+updateCharCount();
+
+codeEl.addEventListener('keydown', function(e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = this.selectionStart;
+    const end = this.selectionEnd;
+    this.value = this.value.substring(0, start) + '    ' + this.value.substring(end);
+    this.selectionStart = this.selectionEnd = start + 4;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    runCode();
+  }
+});
+
+async function runCode() {
+  const source = codeEl.value;
+  if (!source.trim()) {
+    outputEl.textContent = 'اكتب كود الأول!';
+    outputEl.className = 'error';
+    return;
+  }
+
+  runBtn.disabled = true;
+  runBtn.innerHTML = 'بيشغل <span class="spinner"></span>';
+  outputEl.textContent = 'جاري تجميع وتشغيل الكود...';
+  outputEl.className = '';
+  statusDot.className = 'status-dot';
+  timeTaken.textContent = '';
+
+  const startTime = performance.now();
+
+  try {
+    const response = await fetch('https://emkc.org/api/v2/piston/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        language: 'c++',
+        version: '10.2.0',
+        files: [{ name: 'main.cpp', content: source }],
+        stdin: stdinEl.value,
+        compile_timeout: 10000,
+        run_timeout: 5000
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('فشل الاتصال بالسيرفر (HTTP ' + response.status + ')');
+    }
+
+    const data = await response.json();
+    const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+    timeTaken.textContent = elapsed + ' ثانية';
+
+    let result = '';
+    let hasError = false;
+
+    if (data.compile && data.compile.stderr) {
+      result += '--- أخطاء الترجمة (Compile Errors) ---\n' + data.compile.stderr + '\n';
+      hasError = true;
+    }
+
+    if (data.run) {
+      if (data.run.stdout) {
+        result += data.run.stdout;
+      }
+      if (data.run.stderr) {
+        result += (result ? '\n' : '') + '--- أخطاء التشغيل (Runtime Errors) ---\n' + data.run.stderr;
+        hasError = true;
+      }
+      if (data.run.code !== 0 && !data.run.stderr && !(data.compile && data.compile.stderr)) {
+        result += '\n[البرنامج انتهى بكود خروج: ' + data.run.code + ']';
+      }
+    }
+
+    if (!result.trim()) {
+      result = '(تم التشغيل بدون ناتج)';
+    }
+
+    outputEl.textContent = result;
+    outputEl.className = hasError ? 'error' : 'success';
+    statusDot.className = 'status-dot ' + (hasError ? 'fail' : 'ok');
+
+  } catch (err) {
+    outputEl.textContent = 'حصل خطأ: ' + err.message + '\n\nتأكد إن عندك اتصال إنترنت.';
+    outputEl.className = 'error';
+    statusDot.className = 'status-dot fail';
+  } finally {
+    runBtn.disabled = false;
+    runBtn.innerHTML = '▶ تشغيل الكود';
+  }
+}
+
+runBtn.addEventListener('click', runCode);
+</script>
+
+</body>
+</html>
