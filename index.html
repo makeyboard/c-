@@ -148,8 +148,9 @@
 <header>
   <h1>&lt;/&gt; C++ <span>Compiler</span></h1>
   <div class="controls">
-    <select id="stdVersion">
-      <option value="10.2.0" selected>GCC 10.2.0</option>
+    <select id="engineSelect">
+      <option value="local" selected>مفسّر داخلي (شغال دايمًا، بدون إنترنت)</option>
+      <option value="online">سيرفر أونلاين (دعم أكبر للغة، يحتاج إنترنت)</option>
     </select>
     <button id="runBtn">▶ تشغيل الكود</button>
   </div>
@@ -174,8 +175,9 @@
   </div>
 </main>
 
-<footer>يعمل عبر Piston API (emkc.org) — يحتاج اتصال إنترنت وقت التشغيل</footer>
+<footer>الوضع الافتراضي يشغّل الكود محليًا جوه المتصفح (مفسّر JSCPP) — من غير ما يحتاج سيرفر خارجي</footer>
 
+<script src="https://cdn.jsdelivr.net/npm/jscpp@2.0.11/dist/JSCPP.es5.min.js"></script>
 <script>
 const codeEl = document.getElementById('code');
 const outputEl = document.getElementById('output');
@@ -184,6 +186,7 @@ const stdinEl = document.getElementById('stdinBox');
 const charCount = document.getElementById('charCount');
 const statusDot = document.getElementById('statusDot');
 const timeTaken = document.getElementById('timeTaken');
+const engineSelect = document.getElementById('engineSelect');
 
 const defaultCode = [
   '#include <iostream>',
@@ -313,25 +316,80 @@ async function runCode() {
     return { result: result.trim() || '(تم التشغيل بدون ناتج)', hasError };
   }
 
+  async function tryGodbolt() {
+    // Compiler Explorer: compiles and RUNS via its "execute" endpoint
+    const response = await fetch('https://godbolt.org/api/compiler/g132/compile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        source: source,
+        options: {
+          userArguments: '-std=c++17',
+          executeParameters: { args: [], stdin: stdinEl.value },
+          compilerOptions: { executorRequest: true },
+          filters: { execute: true }
+        }
+      })
+    });
+    if (!response.ok) {
+      let bodyText = '';
+      try { bodyText = await response.text(); } catch (e) {}
+      throw new Error('godbolt-http-' + response.status + (bodyText ? ' :: ' + bodyText.slice(0, 200) : ''));
+    }
+    const data = await response.json();
+
+    let result = '';
+    let hasError = false;
+
+    const compileStderr = (data.stderr || []).map(l => l.text).join('\n');
+    if (data.code !== 0 && compileStderr) {
+      result += '--- أخطاء الترجمة (Compile Errors) ---\n' + compileStderr + '\n';
+      hasError = true;
+    }
+
+    if (data.execResult) {
+      const stdout = (data.execResult.stdout || []).map(l => l.text).join('\n');
+      const stderr = (data.execResult.stderr || []).map(l => l.text).join('\n');
+      if (stdout) result += stdout;
+      if (stderr) {
+        result += (result ? '\n' : '') + '--- أخطاء التشغيل (Runtime Errors) ---\n' + stderr;
+        hasError = true;
+      }
+      if (data.execResult.code !== 0 && !stderr) {
+        result += '\n[البرنامج انتهى بكود خروج: ' + data.execResult.code + ']';
+      }
+    } else if (!hasError && compileStderr) {
+      // compiled ok (warnings) but didn't run
+      result += compileStderr;
+    }
+
+    return { result: result.trim() || '(تم التشغيل بدون ناتج)', hasError };
+  }
+
   try {
     let outcome;
-    let usedFallback = false;
+    let usedFallback = '';
     try {
       outcome = await tryPiston();
-    } catch (firstErr) {
-      usedFallback = true;
-      outcome = await tryWandbox();
+    } catch (err1) {
+      try {
+        usedFallback = 'Wandbox';
+        outcome = await tryWandbox();
+      } catch (err2) {
+        usedFallback = 'Godbolt';
+        outcome = await tryGodbolt();
+      }
     }
 
     const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
-    timeTaken.textContent = elapsed + ' ثانية' + (usedFallback ? ' (Wandbox)' : '');
+    timeTaken.textContent = elapsed + ' ثانية' + (usedFallback ? ' (' + usedFallback + ')' : '');
 
     outputEl.textContent = outcome.result;
     outputEl.className = outcome.hasError ? 'error' : 'success';
     statusDot.className = 'status-dot ' + (outcome.hasError ? 'fail' : 'ok');
 
   } catch (err) {
-    outputEl.textContent = 'حصل خطأ: ' + err.message + '\n\nتأكد إن عندك اتصال إنترنت، أو إن الخدمتين (Piston و Wandbox) شغالة دلوقتي.';
+    outputEl.textContent = 'حصل خطأ: ' + err.message + '\n\nالخدمات التلاتة (Piston, Wandbox, Godbolt) مش راضية تستجيب دلوقتي. جرب تاني بعد شوية.';
     outputEl.className = 'error';
     statusDot.className = 'status-dot fail';
   } finally {
