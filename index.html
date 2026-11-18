@@ -238,6 +238,35 @@ async function runCode() {
 
   const startTime = performance.now();
 
+  // Local in-browser C++ interpreter (JSCPP) - no network needed, always available
+  function runLocal() {
+    if (typeof JSCPP === 'undefined') {
+      return {
+        result: 'المفسّر الداخلي (JSCPP) لسه ما تحملش من الإنترنت. استنى ثانيتين وحاول تاني، أو اختار "سيرفر أونلاين" من القائمة فوق.',
+        hasError: true
+      };
+    }
+
+    let outputBuf = '';
+    let hasError = false;
+
+    try {
+      JSCPP.run(source, stdinEl.value, {
+        stdio: {
+          write: function (s) { outputBuf += s; }
+        },
+        maxTimeout: 8000
+      });
+    } catch (e) {
+      hasError = true;
+      const msg = (e && e.message) ? e.message : String(e);
+      outputBuf += (outputBuf ? '\n' : '') + '--- خطأ (JSCPP) ---\n' + msg;
+      outputBuf += '\n\nملحوظة: المفسّر الداخلي بيدعم مجموعة أساسية من C++ (functions, loops, arrays, pointers, structs, iostream)، ولو الكود فيه حاجات متقدمة (templates معقدة، STL كبيرة زي map/vector الكاملة، multi-threading...) جرب وضع "سيرفر أونلاين" من القائمة فوق.';
+    }
+
+    return { result: outputBuf.trim() || '(تم التشغيل بدون ناتج)', hasError };
+  }
+
   // Try Piston first, then fall back to Wandbox if it fails (e.g. 401/429/CORS)
   async function tryPiston() {
     const response = await fetch('https://emkc.org/api/v2/piston/execute', {
@@ -369,15 +398,20 @@ async function runCode() {
   try {
     let outcome;
     let usedFallback = '';
-    try {
-      outcome = await tryPiston();
-    } catch (err1) {
+
+    if (engineSelect.value === 'local') {
+      outcome = runLocal();
+    } else {
       try {
-        usedFallback = 'Wandbox';
-        outcome = await tryWandbox();
-      } catch (err2) {
-        usedFallback = 'Godbolt';
-        outcome = await tryGodbolt();
+        outcome = await tryPiston();
+      } catch (err1) {
+        try {
+          usedFallback = 'Wandbox';
+          outcome = await tryWandbox();
+        } catch (err2) {
+          usedFallback = 'Godbolt';
+          outcome = await tryGodbolt();
+        }
       }
     }
 
@@ -389,7 +423,7 @@ async function runCode() {
     statusDot.className = 'status-dot ' + (outcome.hasError ? 'fail' : 'ok');
 
   } catch (err) {
-    outputEl.textContent = 'حصل خطأ: ' + err.message + '\n\nالخدمات التلاتة (Piston, Wandbox, Godbolt) مش راضية تستجيب دلوقتي. جرب تاني بعد شوية.';
+    outputEl.textContent = 'حصل خطأ: ' + err.message + '\n\nالخدمات الأونلاين مش راضية تستجيب دلوقتي. جرب الوضع "مفسّر داخلي" من القائمة فوق.';
     outputEl.className = 'error';
     statusDot.className = 'status-dot fail';
   } finally {
